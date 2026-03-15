@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gdelt-geopolitical-risk-graph"
+version = "0.1.0"
+description = "Local GDELT temporal geopolitical risk graph pipeline with DuckDB and Neo4j."
+requires-python = ">=3.12"
+dependencies = [
+  "certifi>=2024.0.0",
+  "duckdb>=1.2.0,<2.0.0",
+  "neo4j>=5.28.0,<6.0.0",
+]
+
+[project.scripts]
+gdelt-risk-graph = "gdelt_risk_graph.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
