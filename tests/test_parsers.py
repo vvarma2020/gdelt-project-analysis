@@ -120,6 +120,29 @@ class ParserTests(unittest.TestCase):
             self.assertEqual(["SANCTIONS"], [row[3] for row in themes])
             self.assertEqual([], entities)
 
+    def test_parse_gkg_zip_replaces_invalid_utf8_bytes(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            zip_path = Path(temp_dir) / "invalid-utf8.gkg.csv.zip"
+            row = [""] * 18
+            row[0] = "GKG3"
+            row[1] = "20260315010000"
+            row[2] = "1"
+            row[3] = "example.com"
+            row[4] = "https://news.example/bad"
+            row[7] = "SANCTIONS"
+            row[8] = "SANCTIONS,1"
+            row[15] = "-2.0,0.0,0.0,0.0,0.0,0.0,0.0"
+            prefix = "\t".join(row[:-1]).encode("utf-8")
+            invalid_field = b"\tbad-byte-\xed-text"
+            with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr("invalid-utf8.gkg.csv", prefix + invalid_field + b"\n")
+
+            documents, themes, entities = parse_gkg_zip(zip_path, "20260315011500")
+
+            self.assertEqual(1, len(documents))
+            self.assertEqual(["SANCTIONS"], [row[3] for row in themes])
+            self.assertEqual([], entities)
+
 
 if __name__ == "__main__":
     unittest.main()

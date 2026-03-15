@@ -78,7 +78,7 @@ def iter_tsv_rows(zip_path: Path) -> Iterator[list[str]]:
     with zipfile.ZipFile(zip_path, "r") as archive:
         member = archive.namelist()[0]
         with archive.open(member, "r") as handle:
-            wrapper = io.TextIOWrapper(handle, encoding="utf-8", newline="")
+            wrapper = io.TextIOWrapper(handle, encoding="utf-8", errors="replace", newline="")
             reader = csv.reader(wrapper, delimiter="\t")
             for row in reader:
                 if row:
