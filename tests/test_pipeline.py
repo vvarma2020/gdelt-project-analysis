@@ -89,6 +89,84 @@ def build_gkg_row(document_identifier: str, themes: str, location: str, person: 
 
 
 class PipelineTests(unittest.TestCase):
+    def test_reset_data_deletes_storage_and_preserves_repo_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            pipeline = Pipeline(AppConfig.from_env(project_root=temp_root))
+
+            keep_file = temp_root / "keep.txt"
+            keep_file.write_text("keep", encoding="utf-8")
+
+            raw_file = pipeline.config.raw_root / "2026" / "03" / "15" / "sample.zip"
+            raw_file.parent.mkdir(parents=True, exist_ok=True)
+            raw_file.write_text("raw", encoding="utf-8")
+
+            checkpoint_file = pipeline.config.checkpoint_path
+            checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
+            checkpoint_file.write_text('{"last_timestamp":"20260315000000"}', encoding="utf-8")
+
+            duckdb_file = pipeline.config.duckdb_path
+            duckdb_file.parent.mkdir(parents=True, exist_ok=True)
+            duckdb_file.write_text("db", encoding="utf-8")
+
+            pipeline.reset_data()
+
+            self.assertTrue(keep_file.exists())
+            self.assertTrue(pipeline.config.data_root.exists())
+            self.assertTrue(pipeline.config.state_root.exists())
+            self.assertFalse(raw_file.exists())
+            self.assertFalse(duckdb_file.exists())
+            self.assertTrue(checkpoint_file.exists())
+            self.assertEqual(
+                '{\n  "last_published_day": null,\n  "last_timestamp": null\n}',
+                checkpoint_file.read_text(encoding="utf-8").strip(),
+            )
+
+    def test_reset_neo4j_clears_publish_state_without_touching_local_data(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            with patch.dict(
+                os.environ,
+                {
+                    "NEO4J_URI": "bolt://localhost:7687",
+                    "NEO4J_USERNAME": "neo4j",
+                    "NEO4J_PASSWORD": "password",
+                    "NEO4J_DATABASE": "neo4j",
+                },
+                clear=False,
+            ):
+                pipeline = Pipeline(AppConfig.from_env(project_root=temp_root))
+
+            pipeline.checkpoint.last_timestamp = "20260315011500"
+            pipeline.checkpoint.last_published_day = "2026-03-15"
+            pipeline.checkpoint.save(pipeline.config.checkpoint_path)
+
+            raw_file = pipeline.config.raw_root / "2026" / "03" / "15" / "sample.zip"
+            raw_file.parent.mkdir(parents=True, exist_ok=True)
+            raw_file.write_text("raw", encoding="utf-8")
+
+            with pipeline.store.connect() as connection:
+                connection.execute(
+                    """
+                    INSERT INTO neo4j_publish_state (day, published_at)
+                    VALUES (DATE '2026-03-15', CURRENT_TIMESTAMP)
+                    """
+                )
+
+            with patch("gdelt_risk_graph.pipeline.Neo4jPublisher.reset_projection") as reset_projection:
+                pipeline.reset_neo4j()
+
+            reset_projection.assert_called_once()
+            self.assertTrue(raw_file.exists())
+            self.assertEqual("20260315011500", pipeline.checkpoint.last_timestamp)
+            self.assertIsNone(pipeline.checkpoint.last_published_day)
+
+            with pipeline.store.connect() as connection:
+                published_days = connection.execute(
+                    "SELECT day FROM neo4j_publish_state ORDER BY day"
+                ).fetchall()
+            self.assertEqual([], published_days)
+
     def test_backfill_prepares_in_parallel_and_rebuilds_each_day_once(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)

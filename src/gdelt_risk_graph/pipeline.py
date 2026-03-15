@@ -4,6 +4,7 @@ import json
 import logging
 import math
 import os
+import shutil
 from collections import Counter, defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
@@ -148,6 +149,25 @@ class Pipeline:
     def rebuild_day(self, target_day: date) -> None:
         with self.store.connect() as connection:
             self._rebuild_day_with_connection(connection, target_day)
+
+    def reset_data(self) -> None:
+        for root in (self.config.data_root, self.config.state_root):
+            if root.exists():
+                shutil.rmtree(root)
+        self.config.ensure_directories()
+        self.checkpoint = Checkpoint()
+        self.checkpoint.save(self.config.checkpoint_path)
+
+    def reset_neo4j(self) -> None:
+        neo4j_config = self._neo4j_config()
+        publisher = Neo4jPublisher(neo4j_config)
+        publisher.reset_projection()
+
+        with self.store.connect() as connection:
+            connection.execute("DELETE FROM neo4j_publish_state")
+
+        self.checkpoint.last_published_day = None
+        self.checkpoint.save(self.config.checkpoint_path)
 
     def publish_neo4j(self, since: date | None = None) -> int:
         neo4j_config = self._neo4j_config()

@@ -31,6 +31,23 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("poll-once", help="Process newly available batches")
 
+    reset_data = subparsers.add_parser("reset-data", help="Delete local pipeline data and state")
+    reset_data.add_argument(
+        "--yes",
+        action="store_true",
+        help="Required confirmation flag for destructive reset",
+    )
+
+    reset_neo4j = subparsers.add_parser(
+        "reset-neo4j",
+        help="Delete the published Neo4j graph projection and local publish state",
+    )
+    reset_neo4j.add_argument(
+        "--yes",
+        action="store_true",
+        help="Required confirmation flag for destructive Neo4j reset",
+    )
+
     process_batch = subparsers.add_parser("process-batch", help="Process a specific batch timestamp")
     process_batch.add_argument("--timestamp", required=True)
     process_batch.add_argument("--export-url", required=True)
@@ -60,6 +77,20 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "poll-once":
         processed = pipeline.poll_once()
         logging.info("Processed %s new batches", processed)
+        return 0
+
+    if args.command == "reset-data":
+        if not args.yes:
+            parser.error("reset-data requires --yes")
+        pipeline.reset_data()
+        logging.info("Deleted local pipeline data and state")
+        return 0
+
+    if args.command == "reset-neo4j":
+        if not args.yes:
+            parser.error("reset-neo4j requires --yes")
+        pipeline.reset_neo4j()
+        logging.info("Deleted published Neo4j graph projection and local publish state")
         return 0
 
     if args.command == "process-batch":
