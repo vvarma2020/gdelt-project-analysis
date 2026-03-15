@@ -12,17 +12,23 @@ Local Python pipeline for building a 7-day trailing geopolitical interaction gra
 ## Commands
 - `python -m gdelt_risk_graph backfill --days 7 --workers 4`
 - `python -m gdelt_risk_graph poll-once`
+- `python -m gdelt_risk_graph reset-data --yes`
+- `python -m gdelt_risk_graph reset-neo4j --yes`
 - `python -m gdelt_risk_graph rebuild-day --date 2026-03-15`
 - `python -m gdelt_risk_graph publish-neo4j --since 2026-03-15`
 
 ## Environment
+- A project-root `.env` file is loaded automatically before config is built.
 - `GDELT_PROJECT_ROOT` optional project root override.
 - `GDELT_DATA_ROOT` optional data directory override.
+- `GDELT_STATE_ROOT` optional state directory override.
 - `GDELT_MASTERFILE_URL` optional masterfile URL override. Defaults to the GDELT HTTP feed because the current HTTPS certificate for `data.gdeltproject.org` does not validate cleanly.
 - `GDELT_DUCKDB_PATH` optional DuckDB path override.
 - `GDELT_CHECKPOINT_PATH` optional checkpoint path override.
 - `GDELT_CA_BUNDLE_PATH` optional CA bundle override for HTTPS downloads.
 - `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, `NEO4J_DATABASE` for Neo4j publication.
+
+Use `.env.example` as the tracked template and `.env` as your local runtime config.
 
 ## Layout
 - `data/raw/YYYY/MM/DD/*.zip`

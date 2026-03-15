@@ -108,10 +108,16 @@ Follow the Conventional Commits 1.0.0 specification for every commit:
 Use the local project virtual environment for all commands:
 - `source .venv/bin/activate`
 
+Environment loading:
+- The CLI auto-loads a project-root `.env` file before building config.
+- Keep local secrets in `.env`; use `.env.example` as the tracked template.
+
 Primary CLI commands:
 - `python -m gdelt_risk_graph --help`
 - `python -m gdelt_risk_graph backfill --days 1 --workers 4`
 - `python -m gdelt_risk_graph poll-once`
+- `python -m gdelt_risk_graph reset-data --yes`
+- `python -m gdelt_risk_graph reset-neo4j --yes`
 - `python -m gdelt_risk_graph process-batch --timestamp 20260313000000 --export-url http://data.gdeltproject.org/gdeltv2/20260313000000.export.CSV.zip --mentions-url http://data.gdeltproject.org/gdeltv2/20260313000000.mentions.CSV.zip --gkg-url http://data.gdeltproject.org/gdeltv2/20260313000000.gkg.csv.zip`
 - `python -m gdelt_risk_graph rebuild-day --date 2026-03-13`
 - `python -m gdelt_risk_graph publish-neo4j --since 2026-03-13`

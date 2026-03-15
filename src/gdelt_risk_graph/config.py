@@ -25,14 +25,37 @@ class AppConfig:
 
     @classmethod
     def from_env(cls, project_root: Path | str | None = None) -> "AppConfig":
-        root = Path(project_root) if project_root is not None else Path(
-            os.environ.get("GDELT_PROJECT_ROOT", Path.cwd())
+        bootstrap_root = (
+            Path(project_root).expanduser().resolve()
+            if project_root is not None
+            else Path.cwd().resolve()
         )
-        data_root = Path(os.environ.get("GDELT_DATA_ROOT", root / "data"))
-        state_root = Path(os.environ.get("GDELT_STATE_ROOT", root / "state"))
-        duckdb_path = Path(os.environ.get("GDELT_DUCKDB_PATH", data_root / "gdelt.duckdb"))
-        checkpoint_path = Path(
-            os.environ.get("GDELT_CHECKPOINT_PATH", state_root / "checkpoint.json")
+        load_dotenv_file(bootstrap_root / ".env")
+
+        root = resolve_path_value(
+            os.environ.get("GDELT_PROJECT_ROOT"),
+            default=bootstrap_root,
+            root=bootstrap_root,
+        )
+        data_root = resolve_path_value(
+            os.environ.get("GDELT_DATA_ROOT"),
+            default=root / "data",
+            root=root,
+        )
+        state_root = resolve_path_value(
+            os.environ.get("GDELT_STATE_ROOT"),
+            default=root / "state",
+            root=root,
+        )
+        duckdb_path = resolve_path_value(
+            os.environ.get("GDELT_DUCKDB_PATH"),
+            default=data_root / "gdelt.duckdb",
+            root=root,
+        )
+        checkpoint_path = resolve_path_value(
+            os.environ.get("GDELT_CHECKPOINT_PATH"),
+            default=state_root / "checkpoint.json",
+            root=root,
         )
         return cls(
             project_root=root,
@@ -66,3 +89,38 @@ class AppConfig:
             self.checkpoint_path.parent,
         ):
             path.mkdir(parents=True, exist_ok=True)
+
+
+def load_dotenv_file(path: Path) -> None:
+    if not path.exists():
+        return
+
+    with path.open("r", encoding="utf-8") as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("export "):
+                line = line.removeprefix("export ").strip()
+            if "=" not in line:
+                continue
+
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip()
+            if not key:
+                continue
+
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+                value = value[1:-1]
+            os.environ.setdefault(key, value)
+
+
+def resolve_path_value(raw_value: str | None, *, default: Path, root: Path) -> Path:
+    if raw_value is None:
+        return default
+
+    candidate = Path(raw_value).expanduser()
+    if candidate.is_absolute():
+        return candidate
+    return (root / candidate).resolve()
